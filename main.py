@@ -1,3 +1,14 @@
+"""Bulk JPEG resize utility.
+
+Resizes JPEG images larger than a configured pixel limit (default 16 MP),
+preserving EXIF and file metadata. Designed for batch processing with
+multiple worker processes and safe deletion via the recycle bin when the
+size reduction is below a threshold.
+
+This module exposes a `main()` entry point for command-line usage and
+helper functions used by worker processes.
+"""
+
 import argparse
 import logging
 import math
@@ -5,6 +16,7 @@ import multiprocessing as mp
 import os
 import shutil
 from pathlib import Path
+from typing import Any
 
 from PIL import Image
 from send2trash import send2trash
@@ -22,7 +34,12 @@ SUBSAMPLING = [0, 1, 2][0]
 Image.MAX_IMAGE_PIXELS = None
 
 
-def configure_logging(log_file: Path):
+def configure_logging(log_file: Path) -> None:
+    """Configure module-level logging to write to `log_file`.
+
+    Args:
+        log_file: Path to the log file where messages will be written.
+    """
     logging.basicConfig(
         filename=str(log_file),
         filemode="w",
@@ -31,11 +48,34 @@ def configure_logging(log_file: Path):
     )
 
 
-def format_size(bytes_size):
+def format_size(bytes_size: int) -> str:
+    """Format a byte count into a human-readable KB string.
+
+    Args:
+        bytes_size: Number of bytes.
+
+    Returns:
+        A string like "12.3 KB".
+    """
+
     return f"{bytes_size / 1024:.1f} KB"
 
 
-def compute_target_size(width: int, height: int):
+def compute_target_size(width: int, height: int) -> tuple[int, int] | None:
+    """Compute a scaled target size that keeps aspect ratio and is even.
+
+    If the image pixel count is within the allowed maximum, returns
+    ``None`` to indicate no resizing is needed.
+
+    Args:
+        width: Original width in pixels.
+        height: Original height in pixels.
+
+    Returns:
+        A pair ``(new_width, new_height)`` if resizing is required,
+        otherwise ``None``.
+    """
+
     pixels = width * height
 
     if pixels <= MAX_PIXELS:
@@ -50,7 +90,18 @@ def compute_target_size(width: int, height: int):
     return new_width, new_height
 
 
-def process_image(task):
+def process_image(task: tuple[Path, Path]) -> dict[str, Any]:
+    """Resize a single image task and return a result dictionary.
+
+    Args:
+        task: Tuple of ``(source_file, destination_file)`` paths.
+
+    Returns:
+        A dict describing the outcome. Keys include: ``status`` (one of
+        "resized", "skipped", "error"), and other fields such as
+        file paths and size metrics depending on the status.
+    """
+
     source_file, destination_file = task
     original_size_bytes = source_file.stat().st_size
 
@@ -121,7 +172,15 @@ def process_image(task):
         }
 
 
-def discover_jpegs(root: Path):
+def discover_jpegs(root: Path) -> list[Path]:
+    """Recursively discover JPEG files under `root`.
+
+    Args:
+        root: Root directory to search.
+
+    Returns:
+        A list of `Path` objects pointing to JPEG files.
+    """
     extensions = {
         ".jpg",
         ".jpeg",
@@ -134,7 +193,20 @@ def discover_jpegs(root: Path):
     ]
 
 
-def build_tasks(source_root: Path, destination_root: Path, suffix: str = ""):
+def build_tasks(
+    source_root: Path, destination_root: Path, suffix: str = ""
+) -> list[tuple[Path, Path]]:
+    """Build a list of (source, destination) tasks for discovered JPEGs.
+
+    Args:
+        source_root: Directory to scan for source images.
+        destination_root: Base directory for destination files.
+        suffix: Optional suffix to append to destination filenames.
+
+    Returns:
+        A list of tuples describing work items for workers.
+    """
+
     tasks = []
 
     for source_file in discover_jpegs(source_root):
@@ -156,7 +228,15 @@ def build_tasks(source_root: Path, destination_root: Path, suffix: str = ""):
     return tasks
 
 
-def main(folder, jobs=8):
+def main(folder: str | None = None, jobs: int | None = None) -> None:
+    """Command-line entry point to resize JPEGs in `folder`.
+
+    If `folder` is None the function will parse command-line arguments.
+
+    Args:
+        folder: Path to the source folder, or ``None`` to parse CLI args.
+        jobs: Number of worker processes to use.
+    """
     if folder is None:
         parser = argparse.ArgumentParser(
             description="Resize JPEGs larger than 16 MP."
