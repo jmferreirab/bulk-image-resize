@@ -22,8 +22,8 @@ from PIL import Image
 from send2trash import send2trash
 from tqdm import tqdm
 
-MAX_MP = 16
-MAX_PIXELS = MAX_MP * 1_000_000
+MAX_MEGAPIXELS = 16
+MAX_PIXELS = MAX_MEGAPIXELS * 1_000_000
 
 # Quality setting for JPEG encoder.
 # "keep" will internally force reusing the original subsampling setting.
