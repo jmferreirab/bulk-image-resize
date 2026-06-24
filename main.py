@@ -1,12 +1,19 @@
-"""Bulk JPEG resize utility.
+"""
+Copyright (c) 2026, jmferreirab
 
-Resizes JPEG images larger than a configured pixel limit (default 16 MP),
+All rights reserved.
+Licensed under the terms of the GNU AGPL-3.0.
+
+See LICENSE for the full terms.
+
+====================================
+
+Bulk JPEG resize utility.
+
+Resizes JPEG images larger than a configured pixel limit,
 preserving EXIF and file metadata. Designed for batch processing with
-multiple worker processes and safe deletion via the recycle bin when the
-size reduction is below a threshold.
+multiple worker processes.
 
-This module exposes a `main()` entry point for command-line usage and
-helper functions used by worker processes.
 """
 
 import argparse
